@@ -601,5 +601,7 @@ Partiellement signifie qu’un fauteuil roulant peut entrer et utiliser les toil
     <string name="quest_construction_road_title">"Cette route est-elle complète ?"</string>
     <string name="quest_construction_generic_title">"Ce chemin est-il complet ?"</string>
     <string name="quest_construction_building_title">"Ce bâtiment est-il complet ?"</string>
-    <string name="quest_maxspeed_name_title">"Quelle est la limitation de vitesse pour %s ?"</string>
+    <string name="quest_maxspeed_name_title">"Quel est le type de limitation de vitesse pour %s ?"</string>
+    <string name="quest_maxspeed_type_explicit">"Panneau de limite de vitesse"</string>
+    <string name="quest_maxspeed_name_explicit">"Qu'indiquent les panneaux de limite de vitesse pour %s ?"</string>
 </resources>

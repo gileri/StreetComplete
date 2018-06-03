@@ -1,4 +1,4 @@
-package de.westnordost.streetcomplete.quests.max_speed;
+package de.westnordost.streetcomplete.max_speed;
 
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -43,9 +43,9 @@ public class AddMaxSpeed extends SimpleOverpassQuestType
 
 	@Override public void applyAnswerTo(Bundle answer, StringMapChangesBuilder changes)
 	{
-		boolean isLivingStreet = answer.getBoolean(AddMaxSpeedForm.LIVING_STREET.value);
-		String maxspeed = answer.getString(AddMaxSpeedForm.MAX_SPEED.value);
-		String advisory = answer.getString(AddMaxSpeedForm.ADVISORY_SPEED.value);
+		boolean isLivingStreet = answer.getBoolean(AddMaxSpeedForm.LIVING_STREET);
+		String maxspeed = answer.getString(AddMaxSpeedForm.MAX_SPEED);
+		String advisory = answer.getString(AddMaxSpeedForm.ADVISORY_SPEED);
 		if(isLivingStreet)
 		{
 			changes.modify("highway","living_street");
@@ -61,8 +61,8 @@ public class AddMaxSpeed extends SimpleOverpassQuestType
 			{
 				changes.add("maxspeed", maxspeed);
 			}
-			String country = answer.getString(AddMaxSpeedForm.MAX_SPEED_IMPLICIT_COUNTRY.value);
-			String roadtype = answer.getString(AddMaxSpeedForm.MAX_SPEED_IMPLICIT_ROADTYPE.value);
+			String country = answer.getString(AddMaxSpeedForm.MAX_SPEED_IMPLICIT_COUNTRY);
+			String roadtype = answer.getString(AddMaxSpeedForm.MAX_SPEED_IMPLICIT_ROADTYPE);
 			if (roadtype != null && country != null)
 			{
 				changes.add(MAXSPEED_TYPE, country + ":" + roadtype);

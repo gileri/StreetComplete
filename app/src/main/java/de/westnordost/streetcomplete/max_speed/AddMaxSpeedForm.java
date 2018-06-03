@@ -1,21 +1,15 @@
-package de.westnordost.streetcomplete.quests.max_speed;
+package de.westnordost.streetcomplete.max_speed;
 
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v7.widget.GridLayoutManager;
-import android.support.v7.widget.PopupMenu;
-import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Spinner;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.Arrays;
@@ -24,23 +18,16 @@ import java.util.List;
 
 import de.westnordost.streetcomplete.R;
 import de.westnordost.streetcomplete.quests.AbstractQuestFormAnswerFragment;
-import de.westnordost.streetcomplete.quests.ImageListQuestAnswerFragment;
-import de.westnordost.streetcomplete.quests.QuestUtil;
-import de.westnordost.streetcomplete.quests.max_speed.model.MaxSpeed;
-import de.westnordost.streetcomplete.view.ImageSelectAdapter;
-import de.westnordost.streetcomplete.view.Item;
 import de.westnordost.streetcomplete.view.dialogs.AlertDialogBuilder;
 
-import static android.view.Menu.NONE;
-
-public class AddMaxSpeedForm extends ImageListQuestAnswerFragment implements ImageSelectAdapter.OnItemSelectionListener
+public class AddMaxSpeedForm extends AbstractQuestFormAnswerFragment
 {
-	public static final Item
-		MAX_SPEED = new Item("maxspeed", R.drawable.ic_quest_max_speed, R.string.quest_maxspeed_type_explicit),
-		ADVISORY_SPEED = new Item("advisory_speed", R.drawable.recycling_container_underground, R.string.underground_recycling_container),
-		MAX_SPEED_IMPLICIT_COUNTRY = new Item("maxspeed_country", R.drawable.recycling_centre, R.string.recycling_centre),
-		MAX_SPEED_IMPLICIT_ROADTYPE = new Item("maxspeed_roadtype", R.drawable.recycling_centre, R.string.recycling_centre),
-		LIVING_STREET = new Item("living_street", R.drawable.recycling_centre, R.string.recycling_centre);
+	public static final String
+			MAX_SPEED = "maxspeed",
+			ADVISORY_SPEED = "advisory_speed",
+			MAX_SPEED_IMPLICIT_COUNTRY = "maxspeed_country",
+			MAX_SPEED_IMPLICIT_ROADTYPE = "maxspeed_roadtype",
+			LIVING_STREET = "living_street";
 
 	private static final String	IS_ADVISORY_SPEED_LIMIT = "is_advisory_speed_limit";
 
@@ -57,29 +44,51 @@ public class AddMaxSpeedForm extends ImageListQuestAnswerFragment implements Ima
 
 	private boolean isAdvisorySpeedLimit;
 
-	@Override
-	protected Item[] getItems() {
-		return new Item[]{MAX_SPEED, ADVISORY_SPEED, MAX_SPEED_IMPLICIT_COUNTRY, MAX_SPEED_IMPLICIT_ROADTYPE, LIVING_STREET};
-	}
-
 	@Override public View onCreateView(LayoutInflater inflater, ViewGroup container,
-									   Bundle savedInstanceState) {
+									   Bundle savedInstanceState)
+	{
 		View view = super.onCreateView(inflater, container, savedInstanceState);
 
-		this.imageSelector.setOnItemSelectionListener(this);
+		isAdvisorySpeedLimit = false;
+		if(savedInstanceState != null)
+		{
+			isAdvisorySpeedLimit = savedInstanceState.getBoolean(IS_ADVISORY_SPEED_LIMIT);
+		}
+
+		if(isAdvisorySpeedLimit)
+		{
+			setStreetSignLayout(R.layout.quest_maxspeed_advisory);
+		}
+		else
+		{
+			setStreetSignLayout(R.layout.quest_maxspeed);
+		}
+
+		addOtherAnswers();
+
 		return view;
+	}
+
+	@Override public void onSaveInstanceState(Bundle outState)
+	{
+		super.onSaveInstanceState(outState);
+		outState.putBoolean(IS_ADVISORY_SPEED_LIMIT, isAdvisorySpeedLimit);
 	}
 
 	private void setStreetSignLayout(int resourceId)
 	{
 		View contentView = setContentView(getCurrentCountryResources().getLayout(resourceId));
-		TextView title = this.getView().findViewById(R.id.title);
-		title.setText(R.string.quest_maxspeed_name_explicit);
 
 		speedInput = contentView.findViewById(R.id.maxSpeedInput);
 
 		speedUnitSelect = contentView.findViewById(R.id.speedUnitSelect);
 		initSpeedUnitSelect();
+
+		View zoneContainer = contentView.findViewById(R.id.zoneContainer);
+		if(zoneContainer != null)
+		{
+			initZoneCheckbox(zoneContainer);
+		}
 	}
 
 	private void initSpeedUnitSelect()
@@ -109,6 +118,56 @@ public class AddMaxSpeedForm extends ImageListQuestAnswerFragment implements Ima
 		});
 
 		zoneContainer.findViewById(R.id.zoneImg).setOnClickListener(v -> zoneCheckbox.toggle());
+	}
+
+	private void addOtherAnswers()
+	{
+		addOtherAnswer(R.string.quest_maxspeed_answer_noSign, () ->
+		{
+			final String highwayTag = getOsmElement().getTags().get("highway");
+			if(URBAN_OR_RURAL_ROADS.contains(highwayTag))
+			{
+				confirmNoSign(this::determineImplicitMaxspeedType);
+			}
+			else if(POSSIBLY_SLOWZONE_ROADS.contains(highwayTag))
+			{
+				if(getCountryInfo().isSlowZoneKnown())
+				{
+					confirmNoSignSlowZone(this::determineImplicitMaxspeedType);
+				}
+				else
+				{
+					confirmNoSign(this::determineImplicitMaxspeedType);
+				}
+			}
+			else if(ROADS_WITH_DEFINITE_SPEED_LIMIT.contains(highwayTag))
+			{
+				confirmNoSign(() -> applyNoSignAnswer(highwayTag));
+			}
+		});
+
+		final String highwayTag = getOsmElement().getTags().get("highway");
+		if(getCountryInfo().isLivingStreetKnown() && MAYBE_LIVING_STREET.contains(highwayTag))
+		{
+			addOtherAnswer(R.string.quest_maxspeed_answer_living_street, () ->
+			{
+				confirmLivingStreet(() ->
+				{
+					Bundle answer = new Bundle();
+					answer.putBoolean(LIVING_STREET, true);
+					applyImmediateAnswer(answer);
+				});
+			});
+		}
+
+		if(getCountryInfo().isAdvisorySpeedLimitKnown())
+		{
+			addOtherAnswer(R.string.quest_maxspeed_answer_advisory_speed_limit, () ->
+			{
+				isAdvisorySpeedLimit = true;
+				setStreetSignLayout(R.layout.quest_maxspeed_advisory);
+			});
+		}
 	}
 
 	private void determineImplicitMaxspeedType()
@@ -208,7 +267,8 @@ public class AddMaxSpeedForm extends ImageListQuestAnswerFragment implements Ima
 	{
 		Bundle answer = new Bundle();
 		String countryCode = getCountryInfo().getCountryCode();
-		answer.putString("coucou", countryCode);
+		answer.putString(MAX_SPEED_IMPLICIT_COUNTRY, countryCode);
+		answer.putString(MAX_SPEED_IMPLICIT_ROADTYPE, roadType);
 		applyImmediateAnswer(answer);
 	}
 
@@ -258,6 +318,21 @@ public class AddMaxSpeedForm extends ImageListQuestAnswerFragment implements Ima
 			speedStr.append(" " + speedUnit);
 		}
 
+		if (isAdvisorySpeedLimit)
+		{
+			answer.putString(ADVISORY_SPEED, speedStr.toString());
+		}
+		else
+		{
+			answer.putString(MAX_SPEED, speedStr.toString());
+			if (zoneCheckbox != null && zoneCheckbox.isChecked())
+			{
+				String countryCode = getCountryInfo().getCountryCode();
+				answer.putString(MAX_SPEED_IMPLICIT_COUNTRY, countryCode);
+				answer.putString(MAX_SPEED_IMPLICIT_ROADTYPE, "zone" + speed);
+			}
+		}
+
 		applyFormAnswer(answer);
 	}
 
@@ -274,31 +349,5 @@ public class AddMaxSpeedForm extends ImageListQuestAnswerFragment implements Ima
 	@Override public boolean hasChanges()
 	{
 		return !speedInput.getText().toString().isEmpty();
-	}
-
-	@Override
-	public void onIndexSelected(int index) {
-		SpeedInputDialog.show(this.getContext(), new OnSpeedInputListener(this.imageSelector));
-	}
-	private class OnSpeedInputListener implements SpeedInputDialog.OnSpeedInputListener {
-
-		ImageSelectAdapter imageSelector;
-
-		public OnSpeedInputListener (ImageSelectAdapter imageSelector) {
-			this.imageSelector = imageSelector;
-		}
-
-		public void onSpeedInput(MaxSpeed maxspeed) {
-			maxspeed.toString();
-		}
-
-		public void onCancel() {
-			this.imageSelector.deselectIndex(this.imageSelector.getSelectedIndices().get(0));
-		}
-	}
-
-	@Override
-	public void onIndexDeselected(int index) {
-
 	}
 }
